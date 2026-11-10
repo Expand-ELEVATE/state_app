@@ -101,3 +101,50 @@ def fetch_all(build_query, page_size: int = 1000) -> list[dict]:
             break
         offset += page_size
     return rows
+
+
+def escape_markdown(text) -> str:
+    """Escape markdown/LaTeX-special characters so plain data renders as
+    literal text in st.markdown / widget labels, instead of being
+    misinterpreted as formatting.
+
+    This matters because question/option text can contain Excel-formula
+    style content like "$A$2" or "=A2*B2" — Streamlit's markdown renderer
+    treats a PAIR of $ as a LaTeX math span (so "$A$2" renders "A" in
+    italic math mode, not as the literal cell reference), and a bare *
+    can trigger italics/bold. Escaping with a backslash makes these render
+    as plain, literal text.
+    """
+    if text is None:
+        return ""
+    s = str(text)
+    # Backslash must be escaped FIRST, or the escapes added below for the
+    # other characters would themselves get double-escaped.
+    for ch in ["\\", "$", "_", "`", "#", "~"]:
+        s = s.replace(ch, "\\" + ch)
+    return s
+
+
+def render_question_markdown(text) -> str:
+    """Render question text for display, allowing question authors to bold
+    specific IMPORTANT WORDS by wrapping them in **double asterisks** in
+    the source CSV — everything else (including $ _ ` # ~ characters that
+    may appear in Excel-formula-style text) is escaped so it renders as
+    literal plain text rather than unintended markdown/LaTeX formatting.
+
+    Only use this for question_text, which is meant to support authored
+    bolding. Use escape_markdown() alone for option text, which should
+    never be bolded/formatted.
+    """
+    if text is None:
+        return ""
+    import re
+
+    parts = re.split(r"(\*\*.+?\*\*)", str(text))
+    rendered = []
+    for part in parts:
+        if part.startswith("**") and part.endswith("**") and len(part) > 4:
+            rendered.append(f"**{escape_markdown(part[2:-2])}**")
+        else:
+            rendered.append(escape_markdown(part))
+    return "".join(rendered)

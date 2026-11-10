@@ -5,7 +5,7 @@ All access goes through the SECURITY DEFINER RPCs defined in schema.sql,
 which do their own authorization check against the supplied staff ID.
 """
 import streamlit as st
-from common import get_client
+from common import get_client, render_question_markdown, escape_markdown
 
 st.set_page_config(page_title="Take Test")
 sb = get_client()
@@ -39,11 +39,12 @@ if not questions:
 answers = {}
 with st.form("test_form"):
     for q in questions:
-        st.markdown(f"**Q{q['question_no']}. {q['question_text']}**")
+        st.markdown(f"Q{q['question_no']}. {render_question_markdown(q['question_text'])}")
         choice = st.radio(
             f"q_{q['question_no']}",
             options=["A", "B", "C", "D"],
-            format_func=lambda opt, q=q: f"{opt}. {q[f'option_{opt.lower()}']}",
+            index=None,  # no option pre-selected — staff must actively choose
+            format_func=lambda opt, q=q: f"{opt}. {escape_markdown(q[f'option_{opt.lower()}'])}",
             key=f"q_{q['question_no']}",
             label_visibility="collapsed",
         )
@@ -52,6 +53,13 @@ with st.form("test_form"):
     submit = st.form_submit_button("Submit Test")
 
 if submit:
+    unanswered = [qn for qn, opt in answers.items() if opt is None]
+    if unanswered:
+        st.error(
+            f"Please answer all questions before submitting. "
+            f"Missing: Q{', Q'.join(str(q) for q in sorted(unanswered))}"
+        )
+        st.stop()
     payload = [{"question_no": qn, "selected_option": opt} for qn, opt in answers.items()]
     result = sb.rpc("staff_submit_test", {"p_test_instance_id": test_instance_id, "p_answers": payload}).execute()
     if result.data:
