@@ -76,3 +76,28 @@ def generate_staff_id(length: int = 6) -> str:
     still retry on collision as a safety net."""
     alphabet = string.ascii_uppercase + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def fetch_all(build_query, page_size: int = 1000) -> list[dict]:
+    """Page through a Supabase/PostgREST query until all rows are fetched.
+
+    PostgREST (and therefore supabase-py) silently caps any query at 1000
+    rows by default — a plain .select("*").execute() on a large table
+    returns only the first 1000 with NO error, which looks like "working
+    fine" right up until a state crosses that row count. This loops with
+    .range() until a short page signals the end.
+
+    `build_query` must be a zero-arg callable that returns a FRESH query
+    builder each call (e.g. `lambda: sb.table("staff").select("*")`),
+    because supabase-py query objects are consumed once .execute()'d.
+    """
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        res = build_query().range(offset, offset + page_size - 1).execute()
+        batch = res.data or []
+        rows.extend(batch)
+        if len(batch) < page_size:
+            break
+        offset += page_size
+    return rows

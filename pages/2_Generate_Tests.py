@@ -6,14 +6,16 @@ Bulk mode: CSV of staff_id + stage (pre/post/both), one row per ID.
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone
-from common import require_login, get_client, state_code
+from common import require_login, get_client, state_code, fetch_all
 
 require_login()
 sb = get_client()
 st.title("Generate Tests")
 
-staff_rows = sb.table("staff").select("id, level, designation").eq("state_code", state_code()).execute()
-staff_options = [r["id"] for r in staff_rows.data] if staff_rows.data else []
+staff_rows = fetch_all(
+    lambda: sb.table("staff").select("id, level, designation").eq("state_code", state_code())
+)
+staff_options = [r["id"] for r in staff_rows]
 valid_staff_ids = set(staff_options)
 
 qmeta = sb.table("questionnaire_meta").select("*").eq("is_active", True).limit(1).execute()
@@ -134,15 +136,14 @@ with tab_bulk:
 
 st.divider()
 st.subheader("All test instances — this state")
-instances = (
-    sb.table("test_instances")
+instances = fetch_all(
+    lambda: sb.table("test_instances")
     .select("*, staff!inner(state_code)")
     .eq("staff.state_code", state_code())
     .order("assigned_at", desc=True)
-    .execute()
 )
-if instances.data:
-    df = pd.json_normalize(instances.data)
+if instances:
+    df = pd.json_normalize(instances)
     st.dataframe(df, use_container_width=True)
 else:
     st.info("No test instances yet.")
@@ -159,7 +160,7 @@ st.markdown(
     """
 )
 
-revocable = [i for i in (instances.data or []) if i.get("status") != "revoked"]
+revocable = [i for i in instances if i.get("status") != "revoked"]
 
 tab_revoke_single, tab_revoke_bulk = st.tabs(["Revoke single instance(s)", "Bulk revoke (CSV)"])
 

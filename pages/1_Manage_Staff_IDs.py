@@ -6,7 +6,7 @@ whether the staff member is attached to a TU (Yes/No, no TU name).
 """
 import streamlit as st
 import pandas as pd
-from common import require_login, get_client, state_code, generate_staff_id
+from common import require_login, get_client, state_code, generate_staff_id, fetch_all
 
 require_login()
 sb = get_client()
@@ -37,8 +37,8 @@ with tab_single:
         if not designation.strip():
             st.error("Designation is required.")
         else:
-            existing = sb.table("staff").select("id").execute()
-            existing_ids = {r["id"] for r in (existing.data or [])}
+            existing_ids_rows = fetch_all(lambda: sb.table("staff").select("id"))
+            existing_ids = {r["id"] for r in existing_ids_rows}
             new_id = unique_new_id(existing_ids)
 
             sb.table("staff").insert(
@@ -90,8 +90,8 @@ with tab_bulk:
             else:
                 st.dataframe(df, use_container_width=True)
                 if st.button(f"Create {len(df)} staff ID(s)"):
-                    existing = sb.table("staff").select("id").execute()
-                    existing_ids = {r["id"] for r in (existing.data or [])}
+                    existing_ids_rows = fetch_all(lambda: sb.table("staff").select("id"))
+                    existing_ids = {r["id"] for r in existing_ids_rows}
 
                     records = []
                     for _, row in df.iterrows():
@@ -121,8 +121,10 @@ with tab_bulk:
 st.divider()
 st.subheader(f"Existing staff IDs — {state_code()}")
 
-rows = sb.table("staff").select("*").eq("state_code", state_code()).order("created_at", desc=True).execute()
-if rows.data:
-    st.dataframe(pd.DataFrame(rows.data), use_container_width=True)
+rows = fetch_all(
+    lambda: sb.table("staff").select("*").eq("state_code", state_code()).order("created_at", desc=True)
+)
+if rows:
+    st.dataframe(pd.DataFrame(rows), use_container_width=True)
 else:
     st.info("No staff IDs created yet.")
