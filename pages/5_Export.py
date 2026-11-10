@@ -10,7 +10,7 @@ st.title("Export — This State's Data")
 staff = sb.table("staff").select("*").eq("state_code", state_code()).execute()
 instances = (
     sb.table("test_instances")
-    .select("*, staff!inner(state_code, level, designation, tu_name)")
+    .select("*, staff!inner(state_code, level, designation, tu)")
     .eq("staff.state_code", state_code())
     .execute()
 )

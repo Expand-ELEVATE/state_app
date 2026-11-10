@@ -69,7 +69,10 @@ def require_login():
         st.stop()
 
 
-def generate_staff_id(length: int = 10) -> str:
-    """Long random alphanumeric ID — unguessable, no link to any identity."""
+def generate_staff_id(length: int = 6) -> str:
+    """Short random alphanumeric ID — unguessable, no link to any identity.
+    6 chars of A-Z0-9 (36^6 ≈ 2.18 billion combinations) is comfortably
+    collision-safe at the scale of thousands of staff per state; callers
+    still retry on collision as a safety net."""
     alphabet = string.ascii_uppercase + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
