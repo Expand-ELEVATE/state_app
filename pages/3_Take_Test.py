@@ -13,6 +13,16 @@ sb = get_client()
 st.title("Expand ELEVATE — Take Your Test")
 st.caption("Enter the ID given to you by your state data analyst. No name or login needed.")
 
+if "last_result" in st.session_state:
+    result = st.session_state["last_result"]
+    st.success("Test submitted. Thank you!")
+    st.balloons()
+    st.metric("Your score", f"{result['score']} / {result['max_score']}")
+    if st.button("Finish"):
+        del st.session_state["last_result"]
+        st.rerun()
+    st.stop()
+
 if "test_instance_id" not in st.session_state:
     staff_id = st.text_input("Your ID")
     if st.button("Start"):
@@ -63,9 +73,9 @@ if submit:
     payload = [{"question_no": qn, "selected_option": opt} for qn, opt in answers.items()]
     result = sb.rpc("staff_submit_test", {"p_test_instance_id": test_instance_id, "p_answers": payload}).execute()
     if result.data:
-        st.success("Test submitted. Thank you!")
-        st.balloons()
+        st.session_state["last_result"] = result.data[0]
         del st.session_state["test_instance_id"]
         del st.session_state["stage"]
+        st.rerun()
     else:
         st.error("Submission failed — please contact your state analyst.")
