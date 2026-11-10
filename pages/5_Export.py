@@ -7,11 +7,14 @@ require_login()
 sb = get_client()
 st.title("Export — This State's Data")
 
-staff_data = fetch_all(lambda: sb.table("staff").select("*").eq("state_code", state_code()))
+staff_data = fetch_all(
+    lambda: sb.table("staff").select("*").eq("state_code", state_code()).order("created_at", desc=True)
+)
 instances_data = fetch_all(
     lambda: sb.table("test_instances")
     .select("*, staff!inner(state_code, level, designation, tu)")
     .eq("staff.state_code", state_code())
+    .order("assigned_at", desc=True)
 )
 
 st.subheader("Staff records")
