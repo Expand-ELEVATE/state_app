@@ -41,10 +41,10 @@ def login_screen():
             sb.table("admin_profiles")
             .select("role, state_code")
             .eq("user_id", res.user.id)
-            .single()
+            .maybe_single()
             .execute()
         )
-        prof = profile.data
+        prof = profile.data if profile else None
         if not prof or prof["role"] != "state":
             st.error("This account is not a State admin account.")
             sb.auth.sign_out()
