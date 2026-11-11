@@ -1,8 +1,9 @@
 """State App — create anonymous staff records and generate their login ID.
 
 Two modes: single staff creation, and bulk creation via CSV upload.
-No identifying details are ever collected — only Level, Designation, and
-whether the staff member is attached to a TU (Yes/No, no TU name).
+No identifying details are ever collected — only Level and Designation.
+TU (Tuberculosis Unit) status is captured by choosing the 'TB Unit' Level
+value, not by a separate field.
 """
 import streamlit as st
 import pandas as pd
@@ -30,7 +31,6 @@ with tab_single:
         st.subheader("Create a new staff ID")
         level = st.selectbox("Level", LEVELS)
         designation = st.text_input("Designation")
-        tu = st.radio("TU (Tuberculosis Unit)?", ["No", "Yes"], horizontal=True)
         submitted = st.form_submit_button("Generate ID")
 
     if submitted:
@@ -47,7 +47,6 @@ with tab_single:
                     "state_code": state_code(),
                     "level": level,
                     "designation": designation.strip(),
-                    "tu": tu == "Yes",
                     "created_by": st.session_state["sb_user_id"],
                 }
             ).execute()
@@ -59,14 +58,15 @@ with tab_bulk:
         f"""
         Upload a CSV with exactly these columns (one row per staff member):
 
-        `Level, Designation, TU`
+        `Level, Designation`
 
         - `Level` must be one of: {', '.join(LEVELS)}
-        - `TU` must be `Yes` or `No`
+        - If a staff member is attached to a TU (Tuberculosis Unit), use the
+          `TB Unit` Level value — there is no separate TU column.
         - Do **not** include any name, phone number, or other identifying
-          detail — this app only ever tracks Level, Designation, and TU
-          status. The state DA's own records (kept outside this app) are
-          what links a login ID back to a real person, if ever needed.
+          detail — this app only ever tracks Level and Designation. The
+          state DA's own records (kept outside this app) are what link a
+          login ID back to a real person, if ever needed.
 
         A random 6-character login ID is generated for every row. Download
         the result immediately after upload — it is not shown again later
@@ -77,16 +77,13 @@ with tab_bulk:
 
     if uploaded:
         df = pd.read_csv(uploaded)
-        required_cols = {"Level", "Designation", "TU"}
+        required_cols = {"Level", "Designation"}
         if not required_cols.issubset(df.columns):
             st.error(f"Missing required columns: {required_cols - set(df.columns)}")
         else:
             bad_levels = sorted(set(df["Level"]) - set(LEVELS))
-            bad_tu = sorted(set(df["TU"].astype(str).str.strip().str.capitalize()) - {"Yes", "No"})
             if bad_levels:
                 st.error(f"Invalid Level value(s): {bad_levels}. Must be one of {LEVELS}.")
-            elif bad_tu:
-                st.error(f"Invalid TU value(s): {bad_tu}. Must be 'Yes' or 'No'.")
             else:
                 st.dataframe(df, use_container_width=True)
                 if st.button(f"Create {len(df)} staff ID(s)"):
@@ -102,13 +99,12 @@ with tab_bulk:
                                 "state_code": state_code(),
                                 "level": row["Level"],
                                 "designation": str(row["Designation"]).strip(),
-                                "tu": str(row["TU"]).strip().capitalize() == "Yes",
                                 "created_by": st.session_state["sb_user_id"],
                             }
                         )
 
                     sb.table("staff").insert(records).execute()
-                    result_df = pd.DataFrame(records)[["id", "level", "designation", "tu"]]
+                    result_df = pd.DataFrame(records)[["id", "level", "designation"]]
                     st.success(f"Created {len(records)} staff IDs.")
                     st.dataframe(result_df, use_container_width=True)
                     st.download_button(

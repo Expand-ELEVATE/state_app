@@ -12,7 +12,7 @@ staff_data = fetch_all(
 )
 instances_data = fetch_all(
     lambda: sb.table("test_instances")
-    .select("*, staff!inner(state_code, level, designation, tu)")
+    .select("*, staff!inner(state_code, level, designation)")
     .eq("staff.state_code", state_code())
     .order("assigned_at", desc=True)
 )
